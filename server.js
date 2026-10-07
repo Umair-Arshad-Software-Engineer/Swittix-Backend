@@ -7,6 +7,7 @@ const { sequelize } = require('./models');
 const projectRequestRoutes = require('./routes/projectRequestRoutes');
 const authRoutes = require('./routes/authRoutes');
 const contactMessageRoutes = require('./routes/Contactmessageroutes');
+const seedAdmin = require('./seeders/seedAdmin'); // <-- import the seed function
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,16 +17,9 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map((o) => o.trim());
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-  })
-);
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded files statically so the frontend/admin panel can view
-// attachments, e.g. GET /uploads/project-requests/<filename>
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ---- Routes ----
@@ -42,7 +36,7 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found.' });
 });
 
-// ---- Global error handler (catches anything not handled upstream) ----
+// ---- Global error handler ----
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ success: false, message: 'Internal server error.' });
@@ -54,10 +48,11 @@ async function start() {
     await sequelize.authenticate();
     console.log('Database connection established.');
 
-    // Creates tables if they don't exist yet, and adds any missing
-    // columns — safe for development. Use migrations for production.
     await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
     console.log('Models synced.');
+
+    // Seed default admin if it doesn't already exist (runs every startup)
+    await seedAdmin();
 
     app.listen(PORT, () => {
       console.log(`Swittix backend running on http://localhost:${PORT}`);
